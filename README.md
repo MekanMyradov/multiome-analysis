@@ -50,7 +50,7 @@ jupyter notebook multiome_analysis.ipynb
 
 ## Dataset
 
-**Source:** [10x Genomics - 10k Human PBMCs, Multiome v1.0, Chromium X](https://www.10xgenomics.com/datasets/10-k-human-pbm-cs-multiome-v-1-0-chromium-x-1-standard-2-0-0)
+**Source:** [10x Genomics - 10k Human PBMCs, Multiome v1.0, Chromium X](https://cf.10xgenomics.com/samples/cell-arc/2.0.0/10k_PBMC_Multiome_nextgem_Chromium_X/10k_PBMC_Multiome_nextgem_Chromium_X_filtered_feature_bc_matrix.h5)
 
 - **Sample:** Healthy male donor (age 30-35)
 - **Cells:** ~10,000 PBMCs
