@@ -1,26 +1,70 @@
-# Single-Cell Multiome Analysis
+# Single-Cell Multiome Analysis: Deep Learning Integration of RNA-seq and ATAC-seq
 
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+A comprehensive deep learning pipeline for analyzing single-cell multiome data, benchmarking multiple state-of-the-art integration methods including CCA, Joint VAE, MultiVI, and MOFA+.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Repository Structure](#repository-structure)
+- [Quick Start](#quick-start)
+  - [Setup Environment](#setup-environment)
+  - [Run Analysis](#run-analysis)
+- [Dataset](#dataset)
+- [Evaluation Metrics](#evaluation-metrics)
+- [Analysis Pipeline](#analysis-pipeline)
+  - [1. Data Exploration](#1-data-exploration)
+  - [2. Latent Modeling](#2-latent-modeling)
+  - [3. Multimodal Integration](#3-multimodal-integration)
+    - [Method 1: CCA](#method-1-cca-canonical-correlation-analysis)
+    - [Method 2: Joint VAE](#method-2-joint-vae)
+    - [Method 3: MultiVI](#method-3-multivi-scvi-tools)
+    - [Method 4: MOFA+](#method-4-mofa-multi-omics-factor-analysis)
+    - [Integration Methods Comparison](#integration-methods-comparison)
+  - [4. Generative Modeling with Joint VAE](#4-generative-modeling-with-joint-vae)
+  - [5. Biological Insights & Summary](#5-biological-insights--summary)
+- [Method Selection Guide](#method-selection-guide)
+- [Usage Examples](#usage-examples)
+- [Deliverables](#deliverables)
+- [References](#references)
+- [License](#license)
+- [Citation](#citation)
+- [Contact](#contact)
+
+---
+
 ## Overview
 
-This project implements state-of-the-art deep learning methods for single-cell multiome analysis on the 10x Genomics 10k PBMC dataset. The pipeline demonstrates multimodal integration of gene expression and chromatin accessibility, denoising autoencoders for nonlinear dimensionality reduction, variational autoencoders for generative modeling, and comprehensive evaluation using clustering metrics.
+This project implements and compares state-of-the-art methods for single-cell multiome analysis on the 10x Genomics 10k PBMC dataset. The pipeline demonstrates multimodal integration of gene expression (RNA-seq) and chromatin accessibility (ATAC-seq), denoising autoencoders for dimensionality reduction, and variational autoencoders for generative modeling with comprehensive benchmarking across multiple integration approaches.
+
+**Key Features:**
+- End-to-end multiome analysis pipeline
+- Four state-of-the-art integration methods benchmarked
+- Generative modeling for synthetic cell generation
+- Reproducible analysis with detailed documentation
+
+---
 
 ## Repository Structure
 
 ```
 .
-├── multiome_analysis.ipynb          # Main analysis notebook
-├── environment.yml                   # Conda environment specification
-├── README.md                         # This file
-├── models/
-│   ├── vae_model.pt                 # Trained VAE model
-└── figures/
-    ├── qc_umaps.png                 # Quality control visualizations
-    ├── dae_umaps.png                # DAE latent space UMAPs
-    └── joint_umap.png               # Joint integration UMAP
+├── multiome_analysis.ipynb                         # Main analysis notebook
+├── environment.yml                                 # Conda environment specification
+├── README.md                         
+├── figures/
+    ├── qc_umaps.png                                # Quality control visualizations
+    ├── dae_umaps.png                               # DAE latent space UMAPs
+    ├── integration_methods_umap_comparison.png     # 2x2 UMAP comparison
+    ├── integration_methods_metrics_comparison.png  # Bar plots
+    └── integration_methods_heatmap.png             # Heatmap
 ```
+
+---
 
 ## Quick Start
 
@@ -39,7 +83,7 @@ conda activate multiome
 conda create -n multiome python=3.10 -y
 conda activate multiome
 conda install -c conda-forge numpy pandas scipy matplotlib seaborn scikit-learn jupyter notebook h5py pytables -y
-pip install --no-cache-dir scanpy anndata torch torchvision umap-learn leidenalg python-igraph scvi-tools
+pip install --no-cache-dir scanpy anndata torch torchvision umap-learn leidenalg python-igraph scvi-tools mofapy2
 ```
 
 ### Run Analysis
@@ -48,24 +92,40 @@ pip install --no-cache-dir scanpy anndata torch torchvision umap-learn leidenalg
 jupyter notebook multiome_analysis.ipynb
 ```
 
+---
+
 ## Dataset
 
 **Source:** [10x Genomics - 10k Human PBMCs, Multiome v1.0, Chromium X](https://cf.10xgenomics.com/samples/cell-arc/2.0.0/10k_PBMC_Multiome_nextgem_Chromium_X/10k_PBMC_Multiome_nextgem_Chromium_X_filtered_feature_bc_matrix.h5)
 
-- **Sample:** Healthy male donor (age 30-35)
-- **Cells:** ~10,000 PBMCs
-- **Technology:** Chromium Next GEM Single Cell Multiome ATAC + Gene Expression
-- **RNA-seq:** ~50,000 reads/cell
-- **ATAC-seq:** ~55,000 read pairs/cell
-- **License:** CC BY 4.0
+| Property | Value |
+|----------|-------|
+| Sample | Healthy male donor (age 30-35) |
+| Cells | ~10,000 PBMCs |
+| Technology | Chromium Next GEM Single Cell Multiome ATAC + Gene Expression |
+| RNA-seq | ~50,000 reads/cell |
+| ATAC-seq | ~55,000 read pairs/cell |
+| License | CC BY 4.0 |
+
+---
+
+## Evaluation Metrics
+
+We evaluated all methods using three complementary clustering metrics:
+
+| Metric | Description | Range | Interpretation |
+|--------|-------------|-------|----------------|
+| **Adjusted Rand Index (ARI)** | Measures agreement between K-means clustering on latent space and cell type labels. Adjusts for chance. | -1 to 1 | Higher is better. 1 = perfect agreement, 0 = random |
+| **Silhouette Score** | Assesses cluster separation quality by comparing intra-cluster to nearest-cluster distance. | -1 to 1 | Higher is better. Positive = well-separated clusters |
+| **kNN Purity** | Proportion of cells whose k-nearest neighbors (k=15) share the same cell type label. | 0 to 1 | Higher is better. Measures local consistency |
+
+---
 
 ## Analysis Pipeline
 
 ### 1. Data Exploration
 
 #### Quality Control
-
-We applied standard quality control filters to ensure high-quality data:
 
 **RNA-seq filters:**
 - Minimum 200 genes per cell
@@ -87,18 +147,21 @@ We applied standard quality control filters to ensure high-quality data:
 
 | Metric | RNA-seq | ATAC-seq |
 |--------|---------|----------|
-| Mean library size | 2,885 UMI | 23,575 fragments |
-| Median library size | 2,506 UMI | 22,516 fragments |
+| Mean UMI counts/cell | 2,885 | 23,575 fragments |
+| Median UMI counts/cell | 2,506 | 22,516 fragments |
 | Mean features/cell | 1,435 genes | 8,909 peaks |
 | Mean % MT reads | 8.82% | N/A |
 | Cells after filtering | 10,501 | 10,501 |
 
-#### UMAP Visualization
-Provided data did not contain ground-truth cell types, so Leiden clustering was performed at a resolution of 0.5. The resulting clusters were treated as the ground truth.
-
 ![QC UMAPs](figures/qc_umaps.png)
 
-**Figure 1: Quality Control UMAP Visualizations.** RNA-seq (left) and ATAC-seq (right) modalities colored by cell type.
+**Figure 1: Quality Control UMAP Visualizations.** RNA-seq (left) and ATAC-seq (right) modalities colored by cell type. Leiden clustering (resolution 0.5) was used to define cell types in the absence of ground-truth labels.
+
+**Key Observations:**
+- Successfully retained 10,501 high-quality cells after filtering
+- ATAC-seq clusters appear less sharply separated than RNA-seq due to higher sparsity (~5% vs 10-15% non-zero values)
+
+---
 
 ### 2. Latent Modeling
 
@@ -116,38 +179,28 @@ Input → 1024 (BN, ReLU, Dropout 0.1)
       → Output
 ```
 
-**Training Parameters:**
+**Training Configuration:**
 - Latent dimensions: 32 (within 16-32 range requirement)
-- Noise factor: 0.15 (Gaussian noise added to inputs for denoising)
-- Optimizer: Adam with learning rate 0.0005
+- Noise factor: 0.15 (Gaussian noise for denoising)
+- Optimizer: Adam (learning rate: 0.0005)
 - Batch size: 256
 - Epochs: 100
 - Loss function: Mean Squared Error (MSE)
 
 **Training Details:**
-- Added Gaussian noise to inputs during training for robustness
+- Gaussian noise added to inputs during training for robustness
 - Batch normalization layers for stable training
 - Dropout (0.1) for regularization
 - Separate models trained for RNA and ATAC modalities
-
-#### Evaluation Metrics
-
-We evaluated all methods using three complementary clustering metrics:
-
-**Adjusted Rand Index (ARI):** Measures agreement between K-means clustering (k = number of cell types) on latent space and true cell type labels. Range: -1 to 1 (higher is better). Adjusts for chance.
-
-**Silhouette Score:** Assesses cluster separation quality by comparing intra-cluster distance to nearest-cluster distance. Range: -1 to 1 (higher is better).
-
-**kNN Purity:** Proportion of cells whose k-nearest neighbors (k=15) share the same cell type label. Measures local neighborhood consistency. Range: 0 to 1 (higher is better).
 
 #### Performance Comparison
 
 | Method | ARI | Silhouette | kNN Purity |
 |--------|-----|------------|------------|
-| RNA-PCA | 0.65 | 0.20 | 0.95 |
-| RNA-DAE | 0.48 | -0.01 | 0.81 |
-| ATAC-PCA | 0.47 | 0.00 | 0.79 |
-| ATAC-DAE | 0.24 | -0.09 | 0.79 |
+| RNA-PCA | **0.65** | **0.20** | **0.95** |
+| RNA-DAE | 0.50 | -0.07 | 0.81 |
+| ATAC-PCA | **0.47** | **0.00** | **0.79** |
+| ATAC-DAE | 0.35 | -0.07 | 0.79 |
 
 ![DAE UMAPs](figures/dae_umaps.png)
 
@@ -155,310 +208,361 @@ We evaluated all methods using three complementary clustering metrics:
 
 **Key Observations:**
 - DAE achieved lower performance than PCA baseline on this clean, well-separated PBMC dataset
-- This is expected: linear PCA is a strong baseline for datasets with clear cell type separation
-- DAE provides nonlinear feature learning capability, which becomes more valuable in complex datasets
+- PCA is a strong baseline for datasets with clear cell type separation
+- DAE provides nonlinear feature learning capability, which becomes more valuable in:
+  - Noisy or complex datasets
+  - Transfer learning scenarios
+  - When generative capability is needed
 
-### 3. Multiome Integration
+---
 
-#### Canonical Correlation Analysis (CCA)
+### 3. Multimodal Integration
 
-We integrated RNA and ATAC DAE latent representations using canonical correlation analysis, which finds linear projections that maximize correlation between modalities.
+We implemented and benchmarked four integration methods, each with distinct strengths and trade-offs.
 
-**Method:**
+---
+
+#### Method 1: CCA (Canonical Correlation Analysis)
+
+**Approach:** Linear method that finds projections maximizing correlation between modalities.
+
+**Methodology:**
 ```
-Objective: max corr(Z_RNA · W_RNA, Z_ATAC · W_ATAC)
-
 Input: Z_RNA (10,501 × 32), Z_ATAC (10,501 × 32) from DAE
+Objective: max corr(Z_RNA · W_RNA, Z_ATAC · W_ATAC)
 Output: 20 canonical components per modality
 Joint representation: Concatenate → (10,501 × 40)
 ```
 
-**Integration Steps:**
+**Integration Process:**
 1. Extract 32-dimensional latent representations from trained DAE models
 2. Apply CCA to find 20 canonical components maximizing cross-modal correlation
 3. Concatenate RNA_CCA and ATAC_CCA to form 40-dimensional joint representation
 4. Compute UMAP and evaluate clustering metrics
 
-#### Integration Results
+**Advantages:**
+- Fast and computationally efficient
+- Highly interpretable (linear transformations)
+- Works well as baseline method
+- No hyperparameter tuning required
 
-| Method | ARI | Silhouette | kNN Purity |
-|--------|-----|------------|------------|
-| RNA-DAE | 0.48 | -0.01 | 0.81 |
-| ATAC-DAE | 0.24 | -0.09 | 0.79 |
-| **Joint-CCA** | **0.49** | **0.01** | **0.82** |
+**Limitations:**
+- Linear assumptions may miss nonlinear relationships
+- No generative capability
 
-![Joint Integration](figures/joint_umap.png)
+---
 
-**Figure 3: RNA+ATAC Integration via CCA.** UMAP visualization of the joint 40-dimensional representation combining RNA and ATAC modalities.
+#### Method 2: Joint VAE
 
-**Assessment:**
-- CCA successfully aligned RNA and ATAC latent spaces with canonical correlation of 0.68
-- Joint integration improved clustering metrics compared to single-modality analysis
-- The 40-dimensional joint space captures complementary information from gene expression and chromatin accessibility
-
-### 4. Generative Extension - VAE
-
-#### Variational Autoencoder (VAE)
-
-We implemented a variational autoencoder to enable generative modeling of single-cell gene expression data.
+**Approach:** Variational autoencoder with shared encoder for unified multimodal representation.
 
 **Architecture:**
 ```
-Encoder: X → (μ, σ²)  [probabilistic encoding]
-  Input → 512 → 256 → 128 → [μ (32-dim), log(σ²) (32-dim)]
-
-Reparameterization: Z = μ + σ · ε,  where ε ~ N(0,1)
-
-Decoder: Z → X'  [reconstruction]
-  32 → 128 → 256 → 512 → Output
+Concatenate: [X_RNA; X_ATAC] → X_joint (7,000 features total)
+               ↓
+Shared Encoder: X_joint → 1024 → 512 → 256 → 128 → (μ, σ²)
+               ↓
+Latent Space: Z ~ N(μ, σ²) (32 dimensions)
+               ↓
+RNA Decoder: Z → 128 → 256 → 512 → X'_RNA (2,000 genes)
+ATAC Decoder: Z → 128 → 256 → 512 → X'_ATAC (5,000 peaks)
 ```
 
-**Key Differences from DAE:**
-- **DAE:** Deterministic mapping X → Z → X' (compression only)
-- **VAE:** Probabilistic distribution P(Z|X), learns to sample Z ~ N(μ, σ²)
-- **VAE advantage:** Can generate new synthetic cells by sampling Z ~ N(0,1)
+**Key Features:**
+- Forces unified representation from the start (early fusion)
+- More parameter efficient than separate encoders
+- Better for cross-modal prediction
+- Enables paired RNA+ATAC generation from latent space
 
-**Loss Function:**
-```
-L = MSE(X, X') + β · KL(q(Z|X) || N(0,1))
-
-where:
-- MSE: Reconstruction loss (how well we rebuild input)
-- KL divergence: Regularizes latent space to follow N(0,1) distribution
-- β = 0.001: Balances reconstruction quality vs latent space structure
-```
-
-**Training Parameters:**
+**Training Configuration:**
 - Latent dimensions: 32
-- Learning rate: 0.0001 (lower than DAE for stability)
+- Loss: MSE(RNA) + MSE(ATAC) + β·KL(q(Z|X)||N(0,1))
+  - β = 0.001 (balances reconstruction quality vs latent space regularization)
+- Optimizer: Adam (learning rate: 0.0001)
 - Batch size: 256
-- Epochs: 40
+- Epochs: 100
 - Xavier initialization for stable training
-- Gradient clipping (max_norm=1.0) to prevent explosion
-- Clamped log-variance to prevent numerical instability (min=-10, max=10)
+- Gradient clipping (max_norm=1.0)
 
-**Training Details:**
-- VAE trained on RNA data only (time constraint)
-- KL divergence forces latent space to N(0,1), enabling generation
-- Lower β (0.001) prioritizes reconstruction quality
-- Stabilization techniques: gradient clipping, variance clamping
-
-#### VAE Performance
-
-| Model | ARI | Silhouette | kNN Purity |
-|--------|-----|------------|------------|
-| RNA-DAE | 0.47 | -0.01 | 0.81 |
-| RNA-VAE | 0.58 | 0.14 | 0.87 |
-
-**Comparison:** The VAE outperformed the DAE while also offering generative capabilities.
-
-#### Generative Capability Demonstration
-
-**Synthetic Cell Generation:**
+**Generative Capability:**
 ```python
-# Sample from standard normal N(0,1)
-z_samples = torch.randn(5, 32)
-
-# Decode to gene expression
-synthetic_cells = vae_model.decode(z_samples)
-
-# Result: 5 synthetic cells with realistic expression patterns
+# Generate paired RNA+ATAC synthetic cells
+z = torch.randn(100, 32)  # Sample from N(0,1)
+rna_synthetic, atac_synthetic = model.decode(z)
 ```
 
-**Why sample from N(0,1)?**
+**Advantages:**
+- Generates paired multimodal synthetic data
+- Probabilistic framework with uncertainty quantification
+- Strong integration through forced shared latent space
 
+**Limitations:**
+- Requires careful tuning of β parameter
+- Training can be unstable without proper initialization
+- More computationally expensive than linear methods
+
+---
+
+#### Method 3: MultiVI (scVI-tools)
+
+**Approach:** Deep generative model from the scVI-tools ecosystem designed specifically for multimodal integration.
+
+**Architecture:**
+- Probabilistic generative model with variational inference
+- Handles batch effects and technical variation
+- Built on proven scVI foundations
+
+**Training Configuration:**
+- Latent dimensions: 8 (default)
+- Batch size: 128
+- Optimizer: Adam (learning rate: 0.0001)
+- Max epochs: 500 (with early stopping)
+- Automatic convergence detection
+
+**Advantages:**
+- State-of-the-art deep learning approach
+- Robust handling of complex batch effects
+- Part of well-maintained scVI-tools ecosystem
+- Active development and community support
+- Handles missing modalities gracefully
+
+**Limitations:**
+- More complex setup and data formatting requirements
+- Less interpretable than statistical methods
+- Requires more computational resources
+
+---
+
+#### Method 4: MOFA+ (Multi-Omics Factor Analysis)
+
+**Approach:** Statistical framework using probabilistic factor analysis to identify interpretable latent factors.
+
+**Methodology:**
+```
+Learn K factors capturing variation sources:
+- Z (cells × K factors): Factor values per cell
+- W_RNA (genes × K): Gene weights per factor
+- W_ATAC (peaks × K): Peak weights per factor
+
+Variance decomposition:
+- Shared factors (both modalities)
+- RNA-specific factors
+- ATAC-specific factors
+```
+
+**Key Features:**
+- Identifies shared vs. modality-specific variation
+- Variance decomposition across modalities
+- Automatic Relevance Determination (ARD) for factor selection
+- Feature weights enable biological interpretation
+
+**Training Configuration:**
+- Number of factors: 10 (automatically selected via ARD)
+- Convergence mode: Fast
+- Max iterations: 1,000
+- Likelihood: Gaussian for both modalities
+
+**Advantages:**
+- Highly interpretable results
+- Identifies specific biological drivers
+- Quantitative variance decomposition
+- Works well on smaller datasets
+- Statistical rigor with uncertainty quantification
+
+**Limitations:**
+- Linear model assumptions
+- Less scalable than deep learning methods
+- No generative capability
+- Requires centered data
+
+---
+
+### Integration Methods Comparison
+
+![Benchmark Comparison](figures/integration_methods_umap_comparison.png)
+
+**Figure 3: Comprehensive Integration Benchmark.** 2×2 grid of UMAP visualizations for all four integration methods with performance metrics displayed in titles.
+
+#### Quantitative Comparison
+
+| Method | ARI ↑ | Silhouette ↑ | kNN Purity ↑ |
+|--------|-------|--------------|--------------|
+| **Joint VAE** | **0.63** | 0.07 | **0.86** |
+| CCA | 0.45 | 0.02 | 0.82 |
+| **MOFA+** | 0.37 | **0.14** | 0.81 |
+| MultiVI | 0.27 | 0.12 | **0.86** |
+
+**Key Findings:**
+- **Joint VAE** achieved best overall performance with highest ARI (0.63) and tied best kNN Purity (0.86)
+- **MOFA+** showed best cluster separation with highest Silhouette score (0.14)
+- **MultiVI** matched Joint VAE in kNN Purity (0.86) but had lower ARI
+- **CCA** provided competitive baseline with moderate performance across all metrics
+
+![Metrics Comparison](figures/integration_methods_metrics_comparison.png)
+
+**Figure 4: Quantitative Metrics Comparison.** Bar plots comparing all methods across three evaluation metrics. Red borders highlight best performers.
+
+![Heatmap Comparison](figures/integration_methods_heatmap.png)
+
+**Figure 5: Performance Heatmap.** Color-coded comparison showing strengths and weaknesses of each method across metrics.
+
+---
+
+### 4. Generative Modeling with Joint VAE
+
+The Joint VAE with shared encoder enables generation of paired RNA+ATAC synthetic cells.
+
+**Generative Process:**
+1. **Sample latent code** from prior distribution: Z ~ N(0, 1)
+2. **Decode to both modalities**: (RNA', ATAC') = Decoder(Z)
+3. **Result**: Paired synthetic cells with realistic expression patterns
+
+**Why This Works:**
 During training, the KL divergence term forces the latent distribution to match N(0,1). This means:
 - Any point sampled from N(0,1) should decode to a plausible cell
-- Points near T cell cluster → T cell-like expression
-- Points near B cell cluster → B cell-like expression
+- Points near T cell cluster → T cell-like expression patterns
+- Points near B cell cluster → B cell-like expression patterns
+- Smooth interpolation between cell types is possible
+
+**Example Usage:**
+```python
+model.eval()
+
+# generate synthetic cells
+with torch.no_grad():
+    z = torch.randn(100, 32)  # sample 100 cells from prior
+    rna_synthetic, atac_synthetic = model.decode(z)
+
+print(f"Generated RNA: {rna_synthetic.shape}")    # (100, 2000)
+print(f"Generated ATAC: {atac_synthetic.shape}")  # (100, 5000)
+```
 
 **Generated Synthetic Cells:**
-- Shape: (5, 2000) - 5 cells × 2000 highly variable genes
-- Mean expression: 0.00 (comparable to real cells)
-- Standard deviation: 0.08 (realistic variance)
+- Shape: (100, 2000) RNA + (100, 5000) ATAC
+- Realistic expression patterns matching real data distribution
+- Captures cell type diversity from training data
 
-**Limitation:** VAE trained on RNA only for simplicity and time constraints. Future work should implement joint VAE on concatenated RNA+ATAC for paired multimodal generation and cross-modal prediction.
+---
 
-### 5. Biological Insight & Wrap-Up
+### 5. Biological Insights & Summary
 
-#### Summary of Findings
+#### Key Findings
 
-**Main Results:**
-1. Successfully processed 10k PBMC multiome data yielding 10,501 high-quality cells after quality control
-2. Denoising autoencoders with 32-dimensional latent space effectively captured cell type diversity in both RNA and ATAC modalities
-3. CCA-based integration aligned RNA and ATAC latent representations with canonical correlation of 0.68, improving clustering metrics
-4. VAE outperformed DAE while enabling synthetic cell generation for data augmentation
+1. **Data Quality**: Successfully processed 10,501 high-quality PBMC cells with paired RNA and ATAC measurements.
+
+2. **Method Comparison**: Benchmarked four integration methods with distinct strengths:
+   - **Joint VAE**: Best overall integration quality (ARI: 0.63) with generative capability
+   - **MOFA+**: Superior interpretability and variance decomposition (Silhouette: 0.14)
+   - **CCA**: Fast, interpretable baseline (ARI: 0.45)
+   - **MultiVI**: Strong local consistency (kNN Purity: 0.86)
+
+3. **Generative Modeling**: Joint VAE's shared encoder architecture enables paired RNA+ATAC synthetic cell generation while maintaining high integration quality.
+
+4. **Sparsity Effects**: ATAC-seq data showed expected lower cluster separation due to inherent sparsity (~5% vs 10-15% non-zero values for RNA-seq).
 
 #### Limitations
 
-1. **Cell type annotation:** Labels derived from unsupervised Leiden clustering rather than validated marker genes. Requires differential expression analysis and marker-based validation.
+1. **Cell Type Validation**: Labels derived from unsupervised Leiden clustering rather than validated marker genes. Future work should include differential expression analysis and marker-based annotation (CD3D for T cells, CD79A for B cells, CD14 for monocytes, etc.).
 
-2. **Linear integration method:** CCA provides linear alignment between modalities. Nonlinear methods such as scVI-tools (MultiVI, totalVI) or deep canonical correlation analysis may better capture complex cross-modal relationships.
+2. **Single Sample Analysis**: Dataset from one healthy donor without batch effects. Multi-sample integration needed to assess:
+   - Generalizability across individuals
+   - Batch correction capabilities
+   - Robustness to technical variation
 
-3. **Single-modality VAE:** VAE trained on RNA data only due to time constraints. Joint VAE on concatenated RNA+ATAC would enable paired multimodal generation and capture regulatory dependencies between gene expression and chromatin accessibility.
+3. **Linear Method Assumptions**: CCA and MOFA+ assume linear relationships, potentially missing complex nonlinear interactions between modalities.
 
-4. **Single sample analysis:** Dataset from one donor without batch correction. Multi-sample integration needed to assess generalizability across individuals and experimental batches.
+4. **Computational Cost**: Deep learning methods (Joint VAE, MultiVI) require more computational resources and longer training times compared to linear methods.
 
-5. **PCA baseline performance:** DAE achieved lower performance than PCA on this clean dataset. Deep learning advantages more apparent in noisy data, transfer learning scenarios, or when generative capability is needed.
+5. **Parameter Sensitivity**: Each method has hyperparameters requiring careful tuning:
+   - Joint VAE: β parameter for KL divergence weighting
+   - MOFA+: Number of factors
+   - MultiVI: Latent dimensions, early stopping criteria
 
-#### Next Steps
+6. **DAE Baseline**: DAE underperformed PCA on this clean dataset, suggesting linear methods suffice for well-separated data. Deep learning advantages emerge with:
+   - Complex, noisy datasets
+   - Batch effect correction
+   - Transfer learning scenarios
 
-**Immediate improvements:**
-1. Validate cell type assignments using canonical marker genes and perform differential expression analysis
-2. Train joint VAE on concatenated RNA+ATAC (input dim: 2000+5000=7000) for multimodal synthetic generation
-3. Implement advanced integration methods (scVI MultiVI, Seurat v5 WNN) for improved nonlinear alignment
-4. Add learning rate scheduling and early stopping for more efficient training
+#### Future Directions
 
-**Extended analysis:**
+1. Validate cell type assignments using canonical marker genes
+2. Apply to multi-donor cohorts with proper batch correction
+3. Implement hyperparameter optimization for each method
+4. Extend to larger datasets (>100k cells)
 
-5. Perform peak-to-gene linkage using correlation analysis or Cicero to identify cis-regulatory elements
-6. Transcription factor motif enrichment in cell-type-specific peaks to infer regulatory networks
-7. Batch integration across multiple donors to improve model generalizability
+---
 
-## Usage Examples
+## Method Selection Guide
 
-### Load Processed Data
+Choose the appropriate integration method based on your specific needs:
 
-```python
-import scanpy as sc
-import anndata as ad
+### Choose **CCA** when:
+- Need fast, simple baseline results
+- Linear relationships are sufficient
+- Interpretability is more important than performance
+- Limited computational resources
+- No generative modeling needed
 
-# Load processed data
-adata_rna = ad.read_h5ad('data/rna.h5ad')
-adata_atac = ad.read_h5ad('data/atac_ga.h5ad')
+### Choose **Joint VAE** when:
+- Need generative capability for synthetic data
+- Want paired multimodal generation
+- Nonlinear integration is beneficial
+- Have computational resources for training
+- Performance is priority
 
-print(f"RNA: {adata_rna.shape}")
-print(f"ATAC: {adata_atac.shape}")
-print(f"Cell types: {adata_rna.obs['cell_type'].unique()}")
-```
+### Choose **MultiVI** when:
+- Have batch effects to correct
+- Part of existing scVI-tools workflow
+- Need state-of-the-art deep learning
+- Handle missing modalities
+- Active community support important
 
-### Load Trained VAE Model
+### Choose **MOFA+** when:
+- Interpretability is top priority
+- Want variance decomposition across modalities
+- Need to identify biological drivers
+- Working with smaller datasets
+- Statistical rigor required
 
-```python
-import torch
-import numpy as np
-from multiome_analysis import VAE  # Import from notebook
-
-# Load checkpoint
-checkpoint = torch.load('models/vae_model.pt')
-
-# Reconstruct model
-model = VAE(checkpoint['input_dim'], checkpoint['latent_dim'])
-model.load_state_dict(checkpoint['model_state_dict'])
-model.eval()
-
-print(f"Latent dimensions: {checkpoint['latent_dim']}")
-print(f"Gene names: {len(checkpoint['gene_names'])}")
-```
-
-### Generate Synthetic Cells
-
-```python
-# Generate 100 synthetic cells
-with torch.no_grad():
-    z = torch.randn(100, 32)  # Sample from N(0,1)
-    synthetic_cells = model.decode(z).numpy()
-
-print(f"Generated {synthetic_cells.shape[0]} synthetic cells")
-print(f"Expression range: [{synthetic_cells.min():.2f}, {synthetic_cells.max():.2f}]")
-
-# Convert to AnnData for downstream analysis
-import pandas as pd
-synthetic_adata = ad.AnnData(
-    X=synthetic_cells,
-    var=pd.DataFrame(index=checkpoint['gene_names'])
-)
-
-# Analyze synthetic cells
-sc.pp.neighbors(synthetic_adata)
-sc.tl.umap(synthetic_adata)
-sc.pl.umap(synthetic_adata)
-```
-
-### Extract Latent Representations
-
-```python
-# Access latent embeddings
-rna_dae_latent = adata_rna.obsm['X_dae']    # DAE latent (N × 32)
-rna_vae_latent = adata_rna.obsm['X_vae']    # VAE latent (N × 32)
-rna_pca = adata_rna.obsm['X_pca']           # PCA (N × 50)
-
-# Compute UMAP on DAE latent space
-sc.pp.neighbors(adata_rna, use_rep='X_dae', n_neighbors=15)
-sc.tl.umap(adata_rna)
-sc.pl.umap(adata_rna, color='cell_type')
-```
-
-### Load DAE Models
-
-```python
-from multiome_analysis import DAE
-
-# Load both RNA and ATAC DAE models
-checkpoint = torch.load('models/dae_models.pt')
-
-# Reconstruct RNA DAE
-rna_dae = DAE(input_dim=2000, latent_dim=32)
-rna_dae.load_state_dict(checkpoint['rna_model_state_dict'])
-rna_dae.eval()
-
-# Reconstruct ATAC DAE
-atac_dae = DAE(input_dim=5000, latent_dim=32)
-atac_dae.load_state_dict(checkpoint['atac_model_state_dict'])
-atac_dae.eval()
-
-# Encode new data
-with torch.no_grad():
-    new_rna_latent = rna_dae.encoder(torch.FloatTensor(new_data))
-```
-
-## Deliverables
-
-**Data Files:**
-- `rna.h5ad` - Processed RNA-seq data with latent representations
-- `atac_ga.h5ad` - Processed ATAC-seq gene activity matrix
-
-**Figures:**
-- `qc_umaps.png` - Quality control UMAP visualizations
-- `dae_umaps.png` - DAE latent space embeddings
-- `joint_umap.png` - Joint RNA+ATAC integration
-
-**Models:**
-- `vae_model.pt` - Trained VAE with gene names and metadata
-- `dae_models.pt` - Trained DAE models for RNA and ATAC
-
-**Code:**
-- `multiome_analysis.ipynb` - Complete analysis pipeline
-- `environment.yml` - Reproducible environment specification
+---
 
 ## References
 
 1. 10x Genomics. 10k Human PBMCs, Multiome v1.0, Chromium X. https://www.10xgenomics.com/datasets
 
-2. Wolf, F.A., Angerer, P. & Theis, F.J. SCANPY: large-scale single-cell gene expression data analysis. Genome Biology 19, 15 (2018).
+2. Wolf, F.A., Angerer, P. & Theis, F.J. SCANPY: large-scale single-cell gene expression data analysis. *Genome Biology* **19**, 15 (2018).
 
-3. Kingma, D.P. & Welling, M. Auto-Encoding Variational Bayes. ICLR (2014).
+3. Kingma, D.P. & Welling, M. Auto-Encoding Variational Bayes. *ICLR* (2014).
 
-4. Lopez, R. et al. Deep generative modeling for single-cell transcriptomics. Nature Methods 15, 1053–1058 (2018).
+4. Lopez, R. et al. Deep generative modeling for single-cell transcriptomics. *Nature Methods* **15**, 1053–1058 (2018).
 
-5. Gayoso, A. et al. A Python library for probabilistic analysis of single-cell omics data. Nature Biotechnology 40, 163–166 (2022).
+5. Ashuach, T. et al. MultiVI: deep generative model for the integration of multimodal data. *Nature Methods* **20**, 1222–1231 (2023).
+
+6. Argelaguet, R. et al. MOFA+: a statistical framework for comprehensive integration of multi-modal single-cell data. *Genome Biology* **21**, 111 (2020).
+
+---
 
 ## License
 
 This project is licensed under the MIT License. The 10x Genomics dataset is licensed under CC BY 4.0.
 
-## Acknowledgments
-
-We thank 10x Genomics for making the PBMC multiome dataset publicly available, the Scanpy team for the single-cell analysis framework, and the PyTorch team for the deep learning infrastructure.
+---
 
 ## Citation
 
 If you use this code or methods in your research, please cite:
+
 ```bibtex
 @software{multiome_analysis,
   author = {Mekan Myradov},
-  title = {Single-Cell Multiome Analysis},
+  title = {Single-Cell Multiome Analysis: Benchmarking Integration Methods},
   year = {2025},
   url = {https://github.com/MekanMyradov/multiome-analysis}
 }
 ```
+
+---
+
+## Contact
+
+For questions or issues, please open a GitHub issue or contact the repository owner.
