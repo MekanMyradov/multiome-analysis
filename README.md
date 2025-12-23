@@ -3,7 +3,7 @@
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive deep learning pipeline for analyzing single-cell multiome data, benchmarking multiple state-of-the-art integration methods including CCA, Joint VAE, MultiVI, and MOFA+.
+A comprehensive deep learning pipeline for analyzing single-cell multiome data, benchmarking multiple state-of-the-art integration methods including CCA, Joint VAE, MultiVI, MOFA+ and Seurat (Weighted Nearest Neighbors).
 
 ---
 
@@ -24,12 +24,11 @@ A comprehensive deep learning pipeline for analyzing single-cell multiome data, 
     - [Method 2: Joint VAE](#method-2-joint-vae)
     - [Method 3: MultiVI](#method-3-multivi-scvi-tools)
     - [Method 4: MOFA+](#method-4-mofa-multi-omics-factor-analysis)
+    - [Method 5: Seurat (Weighted Nearest Neighbors)](#method-5-seurat-weighted-nearest-neighbors)
     - [Integration Methods Comparison](#integration-methods-comparison)
   - [4. Generative Modeling with Joint VAE](#4-generative-modeling-with-joint-vae)
   - [5. Biological Insights & Summary](#5-biological-insights--summary)
 - [Method Selection Guide](#method-selection-guide)
-- [Usage Examples](#usage-examples)
-- [Deliverables](#deliverables)
 - [References](#references)
 - [License](#license)
 - [Citation](#citation)
@@ -218,7 +217,7 @@ Input → 1024 (BN, ReLU, Dropout 0.1)
 
 ### 3. Multimodal Integration
 
-We implemented and benchmarked four integration methods, each with distinct strengths and trade-offs.
+We implemented and benchmarked five integration methods, each with distinct strengths and trade-offs.
 
 ---
 
@@ -376,26 +375,47 @@ Variance decomposition:
 
 ---
 
+#### Method 5: Seurat (Weighted Nearest Neighbors)
+
+**Approach:** Builds a neighbor graph per modality (RNA and ATAC) in a modality-specific latent space. Learns per-cell modality weights and combines modality graphs into a single weighted nearest neighbor graph used for embedding and clustering.
+
+**Key Features:**
+- Produces an integrated neighbor graph (WNN) instead of forcing a single shared feature space
+- Learns cell-wise modality weights (which modality dominates for each cell)
+
+**Advantages:**
+- Strong, widely used baseline for paired multiome
+- Graph-based integration is often robust for visualization and clustering
+- Lightweight compared to deep generative models
+
+**Limitations:**
+- No generative capability
+- Quality depends heavily on modality-specific preprocessing (dimensionality reduction, filtering, normalization)
+- For very large datasets, WNN candidate search can be memory-heavy
+
+---
+
 ### Integration Methods Comparison
 
 ![Benchmark Comparison](figures/integration_methods_umap_comparison.png)
 
-**Figure 3: Comprehensive Integration Benchmark.** 2×2 grid of UMAP visualizations for all four integration methods with performance metrics displayed in titles.
+**Figure 3: Comprehensive Integration Benchmark.** UMAP visualizations for all four integration methods with performance metrics displayed in titles.
 
 #### Quantitative Comparison
 
 | Method | ARI ↑ | Silhouette ↑ | kNN Purity ↑ |
 |--------|-------|--------------|--------------|
-| **Joint VAE** | **0.63** | 0.07 | **0.86** |
-| CCA | 0.45 | 0.02 | 0.82 |
+| **Joint VAE** | **0.61** | 0.06 | **0.86** |
+| CCA | 0.46 | 0.00 | 0.81 |
 | **MOFA+** | 0.37 | **0.14** | 0.81 |
-| MultiVI | 0.27 | 0.12 | **0.86** |
+| MultiVI | 0.30 | 0.13 | **0.86** |
+| Seurat (WNN) | 0.23 | 0.11 | 0.84 |
 
 **Key Findings:**
-- **Joint VAE** achieved best overall performance with highest ARI (0.63) and tied best kNN Purity (0.86)
+- **Joint VAE** achieved best overall performance with highest ARI (0.61) and tied best kNN Purity (0.86)
 - **MOFA+** showed best cluster separation with highest Silhouette score (0.14)
 - **MultiVI** matched Joint VAE in kNN Purity (0.86) but had lower ARI
-- **CCA** provided competitive baseline with moderate performance across all metrics
+- **CCA and Seurat (WNN)** provided competitive baseline with moderate performance across all metrics
 
 ![Metrics Comparison](figures/integration_methods_metrics_comparison.png)
 
@@ -454,6 +474,7 @@ print(f"Generated ATAC: {atac_synthetic.shape}")  # (100, 5000)
    - **MOFA+**: Superior interpretability and variance decomposition (Silhouette: 0.14)
    - **CCA**: Fast, interpretable baseline (ARI: 0.45)
    - **MultiVI**: Strong local consistency (kNN Purity: 0.86)
+   - **Seurat (WNN)**: Graph-based multimodal baseline (ARI: 0.23, Silhouette: 0.11)
 
 3. **Generative Modeling**: Joint VAE's shared encoder architecture enables paired RNA+ATAC synthetic cell generation while maintaining high integration quality.
 
@@ -476,6 +497,7 @@ print(f"Generated ATAC: {atac_synthetic.shape}")  # (100, 5000)
    - Joint VAE: β parameter for KL divergence weighting
    - MOFA+: Number of factors
    - MultiVI: Latent dimensions, early stopping criteria
+   - Seurat (WNN): kNN size, dimensionality reduction choices
 
 6. **DAE Baseline**: DAE underperformed PCA on this clean dataset, suggesting linear methods suffice for well-separated data. Deep learning advantages emerge with:
    - Complex, noisy datasets
@@ -523,6 +545,11 @@ Choose the appropriate integration method based on your specific needs:
 - Working with smaller datasets
 - Statistical rigor required
 
+### Choose **Seurat (WNN)** when:
+- Want a strong, widely used graph-based multimodal baseline
+- Goal is primarily clustering + visualization (UMAP on an integrated neighbor graph)
+- Want cell-wise modality weighting to understand which modality drives neighborhoods
+- Prefer a lightweight approach compared to deep generative models
 ---
 
 ## References
@@ -539,6 +566,9 @@ Choose the appropriate integration method based on your specific needs:
 
 6. Argelaguet, R. et al. MOFA+: a statistical framework for comprehensive integration of multi-modal single-cell data. *Genome Biology* **21**, 111 (2020).
 
+7. Hao, Yuhan, et al. Integrated analysis of multimodal single-cell data. *Cell* 184.13 (2021): 3573-3587.
+
+8. Bredikhin, Danila, Ilia Kats, and Oliver Stegle. MUON: multimodal omics analysis framework. *Genome biology* 23.1 (2022): 42.
 ---
 
 ## License
