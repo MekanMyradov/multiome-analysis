@@ -324,7 +324,6 @@ rna_synthetic, atac_synthetic = model.decode(z)
 - Robust handling of complex batch effects
 - Part of well-maintained scVI-tools ecosystem
 - Active development and community support
-- Handles missing modalities gracefully
 
 **Limitations:**
 - More complex setup and data formatting requirements
