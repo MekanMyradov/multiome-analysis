@@ -106,6 +106,13 @@ jupyter notebook multiome_analysis.ipynb
 | ATAC-seq | ~55,000 read pairs/cell |
 | License | CC BY 4.0 |
 
+**Source:** [PacBio - 10k Human PBMCs, Long-read RNA](https://downloads.pacbcloud.com/public/dataset/Kinnex-single-cell-RNA/DATA-Revio-Kinnex-PBMC-10x3p/4-SeuratMatrix/NoNovelGenesIsoforms/genes_seurat/)
+
+| Property | Value |
+|----------|-------|
+| Cells | ~10,000 PBMCs |
+| Technology | MAS-Seq and Kinnex |
+
 ---
 
 ## Evaluation Metrics
@@ -144,20 +151,21 @@ We evaluated all methods using three complementary clustering metrics:
 
 #### QC Summary Results
 
-| Metric | RNA-seq | ATAC-seq |
-|--------|---------|----------|
-| Mean UMI counts/cell | 2,885 | 23,575 fragments |
-| Median UMI counts/cell | 2,506 | 22,516 fragments |
-| Mean features/cell | 1,435 genes | 8,909 peaks |
-| Mean % MT reads | 8.82% | N/A |
-| Cells after filtering | 10,501 | 10,501 |
+| Metric | RNA-seq | ATAC-seq | Long-read RNA | 
+|--------|---------|----------|---------------|
+| Mean UMI counts/cell | 2,885 | 23,575 fragments | 1,811 |
+| Median UMI counts/cell | 2,506 | 22,516 fragments | 1,565 |
+| Mean features/cell | 1,435 genes | 8,909 peaks | 871 genes |
+| Mean % MT reads | 8.82% | N/A | 0.00% |
+| Cells after filtering | 10,501 | 10,501 | 12,632 |
 
 ![QC UMAPs](figures/qc_umaps.png)
 
-**Figure 1: Quality Control UMAP Visualizations.** RNA-seq (left) and ATAC-seq (right) modalities colored by cell type. Leiden clustering (resolution 0.5) was used to define cell types in the absence of ground-truth labels.
+**Figure 1: Quality Control UMAP Visualizations.** RNA-seq (left) and ATAC-seq (middle) modalities of 10x dataset and PacBio Long-read RNA (right) colored by cell type. Leiden clustering (resolution 0.5) was used to define cell types in the absence of ground-truth labels.
 
 **Key Observations:**
-- Successfully retained 10,501 high-quality cells after filtering
+- In 10x dataset 20 clusters found
+- In PacBio dataset 19 clusters found
 - ATAC-seq clusters appear less sharply separated than RNA-seq due to higher sparsity (~5% vs 10-15% non-zero values)
 
 ---
@@ -197,16 +205,18 @@ Input → 1024 (BN, ReLU, Dropout 0.1)
 | Method | ARI | Silhouette | kNN Purity |
 |--------|-----|------------|------------|
 | RNA-PCA | **0.65** | **0.20** | **0.95** |
-| RNA-DAE | 0.50 | -0.07 | 0.81 |
+| RNA-DAE | 0.42 | -0.03 | 0.80 |
 | ATAC-PCA | **0.47** | **0.00** | **0.79** |
-| ATAC-DAE | 0.35 | -0.07 | 0.79 |
+| ATAC-DAE | 0.33 | -0.09 | 0.79 |
+| LR-PCA | **0.57** | **0.08** | **0.96** |
+| LR-DAE | 0.14 | -0.11 | 0.76 |
 
 ![DAE UMAPs](figures/dae_umaps.png)
 
-**Figure 2: DAE Latent Space Visualizations.** UMAP projections of 32-dimensional DAE latent representations for RNA-seq (left) and ATAC-seq (right) modalities.
+**Figure 2: DAE Latent Space Visualizations.** UMAP projections of 32-dimensional DAE latent representations for 10x RNA-seq (left) and ATAC-seq (middle) modalities and PacBio Long-read RNA (right).
 
 **Key Observations:**
-- DAE achieved lower performance than PCA baseline on this clean, well-separated PBMC dataset
+- DAE achieved lower performance than PCA baseline on these PBMC datasets
 - PCA is a strong baseline for datasets with clear cell type separation
 - DAE provides nonlinear feature learning capability, which becomes more valuable in:
   - Noisy or complex datasets
@@ -405,14 +415,14 @@ Variance decomposition:
 
 | Method | ARI ↑ | Silhouette ↑ | kNN Purity ↑ |
 |--------|-------|--------------|--------------|
-| **Joint VAE** | **0.61** | 0.06 | **0.86** |
-| CCA | 0.46 | 0.00 | 0.81 |
+| **Joint VAE** | **0.57** | 0.06 | **0.86** |
+| CCA | 0.36 | 0.01 | 0.82 |
 | **MOFA+** | 0.37 | **0.14** | 0.81 |
-| MultiVI | 0.30 | 0.13 | **0.86** |
+| MultiVI | 0.28 | 0.12 | **0.86** |
 | Seurat (WNN) | 0.23 | 0.11 | 0.84 |
 
 **Key Findings:**
-- **Joint VAE** achieved best overall performance with highest ARI (0.61) and tied best kNN Purity (0.86)
+- **Joint VAE** achieved best overall performance with highest ARI (0.57) and tied best kNN Purity (0.86)
 - **MOFA+** showed best cluster separation with highest Silhouette score (0.14)
 - **MultiVI** matched Joint VAE in kNN Purity (0.86) but had lower ARI
 - **CCA and Seurat (WNN)** provided competitive baseline with moderate performance across all metrics
@@ -470,9 +480,9 @@ print(f"Generated ATAC: {atac_synthetic.shape}")  # (100, 5000)
 1. **Data Quality**: Successfully processed 10,501 high-quality PBMC cells with paired RNA and ATAC measurements.
 
 2. **Method Comparison**: Benchmarked four integration methods with distinct strengths:
-   - **Joint VAE**: Best overall integration quality (ARI: 0.63) with generative capability
+   - **Joint VAE**: Best overall integration quality (ARI: 0.57) with generative capability
    - **MOFA+**: Superior interpretability and variance decomposition (Silhouette: 0.14)
-   - **CCA**: Fast, interpretable baseline (ARI: 0.45)
+   - **CCA**: Fast, interpretable baseline (ARI: 0.36)
    - **MultiVI**: Strong local consistency (kNN Purity: 0.86)
    - **Seurat (WNN)**: Graph-based multimodal baseline (ARI: 0.23, Silhouette: 0.11)
 
@@ -556,19 +566,29 @@ Choose the appropriate integration method based on your specific needs:
 
 1. 10x Genomics. 10k Human PBMCs, Multiome v1.0, Chromium X. https://www.10xgenomics.com/datasets
 
-2. Wolf, F.A., Angerer, P. & Theis, F.J. SCANPY: large-scale single-cell gene expression data analysis. *Genome Biology* **19**, 15 (2018).
+2. PacBio. 10k Human PBMCs, Long-read RNA. https://www.pacb.com/connect/datasets/
 
-3. Kingma, D.P. & Welling, M. Auto-Encoding Variational Bayes. *ICLR* (2014).
+3. Wolf, F.A., Angerer, P. & Theis, F.J. SCANPY: large-scale single-cell gene expression data analysis. *Genome Biology* **19**, 15 (2018).
 
-4. Lopez, R. et al. Deep generative modeling for single-cell transcriptomics. *Nature Methods* **15**, 1053–1058 (2018).
+4. Kingma, D.P. & Welling, M. Auto-Encoding Variational Bayes. *ICLR* (2014).
 
-5. Ashuach, T. et al. MultiVI: deep generative model for the integration of multimodal data. *Nature Methods* **20**, 1222–1231 (2023).
+5. Lopez, R. et al. Deep generative modeling for single-cell transcriptomics. *Nature Methods* **15**, 1053–1058 (2018).
 
-6. Argelaguet, R. et al. MOFA+: a statistical framework for comprehensive integration of multi-modal single-cell data. *Genome Biology* **21**, 111 (2020).
+6. Ashuach, T. et al. MultiVI: deep generative model for the integration of multimodal data. *Nature Methods* **20**, 1222–1231 (2023).
 
-7. Hao, Yuhan, et al. Integrated analysis of multimodal single-cell data. *Cell* 184.13 (2021): 3573-3587.
+7. Argelaguet, R. et al. MOFA+: a statistical framework for comprehensive integration of multi-modal single-cell data. *Genome Biology* **21**, 111 (2020).
 
-8. Bredikhin, Danila, Ilia Kats, and Oliver Stegle. MUON: multimodal omics analysis framework. *Genome biology* 23.1 (2022): 42.
+8. Hao, Yuhan, et al. Integrated analysis of multimodal single-cell data. *Cell* 184.13 (2021): 3573-3587.
+
+9. Bredikhin, Danila, Ilia Kats, and Oliver Stegle. MUON: multimodal omics analysis framework. *Genome biology* 23.1 (2022): 42.
+---
+
+## Acknowledgements
+
+This work is being carried out as part of a research project under the continuous and supportive supervision and mentorship of **Shilpa Garg**.
+
+We acknowledge the use of datasets provided by 10x Genomics and PacBio under their respective open data licenses.
+
 ---
 
 ## License
@@ -583,7 +603,7 @@ If you use this code or methods in your research, please cite:
 
 ```bibtex
 @software{multiome_analysis,
-  author = {Mekan Myradov},
+  author = {Mekan Myradov and Shilpa Garg},
   title = {Single-Cell Multiome Analysis: Benchmarking Integration Methods},
   year = {2025},
   url = {https://github.com/MekanMyradov/multiome-analysis}
