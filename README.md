@@ -30,6 +30,7 @@ A comprehensive deep learning pipeline for analyzing single-cell multiome data, 
   - [5. Biological Insights & Summary](#5-biological-insights--summary)
 - [Method Selection Guide](#method-selection-guide)
 - [References](#references)
+- [Acknowledgements](#acknowledgements)
 - [License](#license)
 - [Citation](#citation)
 - [Contact](#contact)
